@@ -39,21 +39,22 @@ fn main() {
     // the objective is to benchmark the time it takes to solve the problem
     // using the north-west corner method
 
-    // let mut times = Vec::new();
+    let mut times = Vec::new();
 
-    // for _ in 0..100 {
-    //     let mut table: Table<u32> = generate_problem(1000, 1000);
-    //     let start = std::time::Instant::now();
-    //     table.north_west_corner();
-    //     let elapsed = start.elapsed();
-    //     times.push(elapsed);
-    // }
+    for _ in 0..100 {
+        let mut table: Table<u32> = generate_problem(1000, 1000);
+        let start = std::time::Instant::now();
+        table.north_west_corner();
+        let elapsed = start.elapsed();
+        times.push(elapsed);
+    }
 
-    // println!(
-    //     "Average time: {:?}",
-    //     times.iter().sum::<std::time::Duration>() / 10
-    // );
+    println!(
+        "Average time: {:?}",
+        times.iter().sum::<std::time::Duration>() / 10
+    );
 
+    // display the solution
     let mut table: Table<u32> = generate_problem(10, 10);
 
     table.display(&table.costs());

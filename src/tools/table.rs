@@ -140,7 +140,7 @@ where
             .enumerate()
             .fold(Default::default(), |acc, (i, row)| {
                 row.iter().enumerate().fold(acc, |acc, (j, &cost)| {
-                    acc + cost * *self.transport.get(i, j).unwrap()
+                    acc + cost * self.transport.get(i, j).unwrap()
                 })
             })
     }

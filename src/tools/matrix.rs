@@ -74,8 +74,8 @@ where
         self.rows() == 0 || self.cols() == 0
     }
 
-    pub fn get(&self, i: usize, j: usize) -> Option<&T> {
-        self.data.get(i).and_then(|row| row.get(j))
+    pub fn get(&self, i: usize, j: usize) -> Option<T> {
+        self.data.get(i).and_then(|row| row.get(j).copied())
     }
 
     pub fn set(&mut self, i: usize, j: usize, value: T) {
