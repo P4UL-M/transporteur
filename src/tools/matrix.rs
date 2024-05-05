@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::ops::Add;
 use std::ops::AddAssign;
 use std::ops::Mul;
@@ -39,6 +40,10 @@ where
         self.cols
     }
 
+    pub fn data(&self) -> &Vec<Vec<T>> {
+        &self.data
+    }
+
     pub fn transpose(&self) -> Self {
         let mut transposed = vec![vec![Default::default(); self.rows()]; self.cols()];
         for i in 0..self.rows() {
@@ -78,9 +83,9 @@ where
     }
 }
 
-impl<T> std::fmt::Display for Matrix<T>
+impl<T> Display for Matrix<T>
 where
-    T: std::fmt::Display,
+    T: Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         for row in &self.data {

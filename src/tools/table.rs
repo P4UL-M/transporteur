@@ -1,9 +1,14 @@
 use std::{
-    fmt::Debug,
+    fmt::{Debug, Display},
     iter::Sum,
     num::ParseIntError,
     ops::{Add, AddAssign, Mul, Sub, SubAssign},
     str::FromStr,
+    vec,
+};
+use tabled::{
+    builder::Builder,
+    settings::{Alignment, Style},
 };
 
 use crate::tools::matrix::Matrix;
@@ -20,6 +25,7 @@ pub struct Table<T> {
 impl<T> Table<T>
 where
     T: Default
+        + Display
         + Clone
         + Copy
         + PartialEq
@@ -36,7 +42,7 @@ where
         + Copy
         + Sum,
 {
-    fn new(costs: Matrix<T>, transport: Matrix<T>, supply: Vec<T>, demand: Vec<T>) -> Self {
+    pub fn new(costs: Matrix<T>, transport: Matrix<T>, supply: Vec<T>, demand: Vec<T>) -> Self {
         // Check if the number of rows in the costs matrix is equal to the length of the supply vector
         assert_eq!(costs.rows(), supply.len());
         // Check if the number of columns in the costs matrix is equal to the length of the demand vector
@@ -130,17 +136,59 @@ where
     pub fn north_west_corner(&mut self) {
         let mut i = 0;
         let mut j = 0;
+        let mut supply = self.supply.clone();
+        let mut demand = self.demand.clone();
         while i < self.n && j < self.m {
-            let min = std::cmp::min(self.supply[i], self.demand[j]);
+            let min = std::cmp::min(supply[i], demand[j]);
             self.transport_mut().set(i, j, min);
-            self.supply[i] -= min;
-            self.demand[j] -= min;
-            if self.supply[i] == Default::default() {
+            supply[i] -= min;
+            demand[j] -= min;
+            if supply[i] == Default::default() {
                 i += 1;
             }
-            if self.demand[j] == Default::default() {
+            if demand[j] == Default::default() {
                 j += 1;
             }
         }
+    }
+
+    pub fn display(&self, data: &Matrix<T>) {
+        let mut table = Builder::default();
+
+        let mut header = vec!["".to_string()];
+        for j in 0..self.m {
+            header.push(format!("D{}", j + 1));
+        }
+        header.push("Supply".to_string());
+        table.push_record(header);
+
+        // Add the costs matrix
+        for i in 0..self.n {
+            let mut row = Vec::new();
+            row.push(format!("S{}", i + 1));
+            for j in 0..self.m {
+                let cost = data.get(i, j).unwrap();
+                row.push(cost.to_string());
+            }
+            // Add the supply value
+            row.push(self.supply[i].to_string());
+            table.push_record(row);
+        }
+
+        // Add the demand vector
+        let mut row = vec!["Demand".to_string()];
+        for j in 0..self.m {
+            row.push(self.demand[j].to_string());
+        }
+        table.push_record(row);
+
+        println!(
+            "{}",
+            table
+                .build()
+                .with(Style::rounded())
+                .with(Alignment::center())
+                .to_string()
+        );
     }
 }
