@@ -1,3 +1,9 @@
+#![allow(dead_code)]
+mod tools;
+use tools::table::Table;
+
 fn main() {
-    println!("Hello, world!");
+    let table: Table<i32> = Table::from_file("data/1.txt");
+    println!("{:?}", table.costs());
+    println!("{:?}", table.transport());
 }
