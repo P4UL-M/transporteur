@@ -133,6 +133,18 @@ where
         &self.demand
     }
 
+    pub fn total_cost(&self) -> T {
+        self.costs
+            .data()
+            .iter()
+            .enumerate()
+            .fold(Default::default(), |acc, (i, row)| {
+                row.iter().enumerate().fold(acc, |acc, (j, &cost)| {
+                    acc + cost * *self.transport.get(i, j).unwrap()
+                })
+            })
+    }
+
     pub fn north_west_corner(&mut self) {
         let mut i = 0;
         let mut j = 0;

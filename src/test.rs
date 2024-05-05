@@ -32,25 +32,34 @@ fn generate_problem(n: usize, m: usize) -> Table<u32> {
         .map(|row| row.iter().sum())
         .collect();
 
-    Table::new(costs, matrix, supply, demand)
+    Table::new(costs, Matrix::new_empty(n, m), supply, demand)
 }
 
 fn main() {
     // the objective is to benchmark the time it takes to solve the problem
     // using the north-west corner method
 
-    let mut times = Vec::new();
+    // let mut times = Vec::new();
 
-    for _ in 0..100 {
-        let mut table: Table<u32> = generate_problem(1000, 1000);
-        let start = std::time::Instant::now();
-        table.north_west_corner();
-        let elapsed = start.elapsed();
-        times.push(elapsed);
-    }
+    // for _ in 0..100 {
+    //     let mut table: Table<u32> = generate_problem(1000, 1000);
+    //     let start = std::time::Instant::now();
+    //     table.north_west_corner();
+    //     let elapsed = start.elapsed();
+    //     times.push(elapsed);
+    // }
 
-    println!(
-        "Average time: {:?}",
-        times.iter().sum::<std::time::Duration>() / 10
-    );
+    // println!(
+    //     "Average time: {:?}",
+    //     times.iter().sum::<std::time::Duration>() / 10
+    // );
+
+    let mut table: Table<u32> = generate_problem(10, 10);
+
+    table.display(&table.costs());
+
+    table.north_west_corner();
+
+    table.display(&table.transport());
+    println!("Total cost: {}", table.total_cost());
 }
