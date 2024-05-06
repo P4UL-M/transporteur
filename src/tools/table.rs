@@ -249,7 +249,7 @@ where
         );
     }
 
-    pub fn potentials<V>(&self, graph: Graph<T>) -> (Vec<V>, Vec<V>)
+    pub fn potentials<V>(&self, graph: &Graph<T>) -> (Vec<V>, Vec<V>)
     where
         V: Default
             + Clone
@@ -271,31 +271,30 @@ where
             panic!("The graph is not a tree");
         }
 
-        let mut a: Matrix<i8> = Matrix::new_empty(self.n + self.m - 1, self.n + self.m - 1);
-        let mut b: Vec<T> = vec![Default::default(); self.n + self.m - 1];
+        let size = self.n + self.m;
+
+        let mut a: Matrix<i8> = Matrix::new_empty(size, size);
+        let mut b: Vec<T> = vec![Default::default(); size];
         // fill the matrix A and the vector B with the edges and the costs
-        let mut i = 0;
-        for edge in graph.edges {
-            if edge.from.starts_with("S") {
-                let j = edge.from[1..].parse::<usize>().unwrap();
-                println!("i: {}, j: {}", i, j);
-                a.set(i, j - 1, 1);
-                a.set(i, self.n + j - 1, -1);
-                b[i] = self
-                    .costs
-                    .get(j - 1, edge.to[1..].parse::<usize>().unwrap() - 1)
-                    .unwrap();
-            } else {
-                let j = edge.to[1..].parse::<usize>().unwrap();
-                a.set(i, j - 1, 1);
-                a.set(i, self.n + j - 1, -1);
-                b[i] = self
-                    .costs
-                    .get(edge.from[1..].parse::<usize>().unwrap() - 1, j - 1)
-                    .unwrap();
+        let mut l = 0;
+        for edge in graph.edges.iter() {
+            if let (Some(i), Some(j)) = (
+                edge.from
+                    .strip_prefix("S")
+                    .and_then(|s| s.parse::<usize>().ok()),
+                edge.to
+                    .strip_prefix("D")
+                    .and_then(|s| s.parse::<usize>().ok()),
+            ) {
+                a.set(l, i - 1, 1);
+                a.set(l, self.n + j - 1, -1);
+                b[l] = self.costs.get(i - 1, j - 1).unwrap();
+                l += 1;
             }
-            i += 1;
         }
+        // fill the last row of the matrix A
+        a.set(l, 1, 1);
+        b[l] = 0.into();
 
         // solve the system of linear equations
         let potentials = a.solve::<T, V>(&b);
@@ -308,5 +307,29 @@ where
             v[j] = potentials[self.n + j];
         }
         (u, v)
+    }
+
+    pub fn marginal_cost<V>(&self, graph: &Graph<T>) -> Matrix<V>
+    where
+        V: Default
+            + Clone
+            + Copy
+            + Add<Output = V>
+            + Sub<Output = V>
+            + Mul<Output = V>
+            + Div<Output = V>
+            + Ord
+            + SubAssign
+            + From<i8>,
+        T: Into<V>,
+    {
+        let (u, v) = self.potentials::<V>(graph);
+        let mut potential = Matrix::new_empty(self.n, self.m);
+        for i in 0..self.n {
+            for j in 0..self.m {
+                potential.set(i, j, self.costs.get(i, j).unwrap().into() - (u[i] - v[j]));
+            }
+        }
+        potential
     }
 }

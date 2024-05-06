@@ -1,8 +1,12 @@
 #![allow(dead_code)]
 mod tools;
+use std::env;
+
 use tools::table::Table;
 
 fn main() {
+    env::set_var("RUST_BACKTRACE", "1");
+
     let mut table: Table<u32> = Table::from_file("data/7.txt");
     table.display(&table.costs());
 
@@ -19,5 +23,6 @@ fn main() {
     println!("{:?}", graph);
     println!("{:?}", graph.is_tree());
 
-    println!("{:?}", table.potentials::<i64>(graph));
+    println!("Potentials : {:?}", table.potentials::<i64>(&graph));
+    println!("Marginal costs : {:?}", table.marginal_cost::<i64>(&graph));
 }
