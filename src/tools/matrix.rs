@@ -1,8 +1,11 @@
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::ops::Add;
 use std::ops::AddAssign;
+use std::ops::Div;
 use std::ops::Mul;
 use std::ops::Sub;
+use std::ops::SubAssign;
 
 // Create a struct Matrix with a field data of type Vec<Vec<T>>.
 #[derive(Debug, Clone)]
@@ -14,7 +17,7 @@ pub struct Matrix<T> {
 
 impl<T> Matrix<T>
 where
-    T: Default + Clone + From<u8> + Copy,
+    T: Default + Clone + Copy,
 {
     pub fn new(data: Vec<Vec<T>>) -> Self {
         Self {
@@ -54,18 +57,6 @@ where
         Self::new(transposed)
     }
 
-    pub fn identity(&self) -> Self {
-        let mut identity = vec![vec![Default::default(); self.cols()]; self.rows()];
-        for i in 0..self.rows() {
-            for j in 0..self.cols() {
-                if i == j {
-                    identity[i][j] = T::from(1);
-                }
-            }
-        }
-        Self::new(identity)
-    }
-
     pub fn is_square(&self) -> bool {
         self.rows() == self.cols()
     }
@@ -80,6 +71,52 @@ where
 
     pub fn set(&mut self, i: usize, j: usize, value: T) {
         self.data[i][j] = value;
+    }
+}
+
+impl<T> Matrix<T>
+where
+    T: Default + Clone + Copy + Debug,
+{
+    pub fn solve<U, V>(&self, b: &Vec<U>) -> Vec<V>
+    where
+        V: Default + Clone + Copy + From<T> + Ord + Div<Output = V> + Mul<Output = V> + SubAssign,
+        U: Into<V> + Copy,
+    {
+        let mut augmented: Matrix<V> = Matrix::new_empty(self.rows(), self.cols() + 1);
+        for i in 0..self.rows() {
+            for j in 0..self.cols() {
+                augmented.data[i][j] = self.data[i][j].into();
+            }
+            augmented.data[i][self.cols()] = b[i].into();
+        }
+        let mut i = 0;
+        let mut j = 0;
+        while i < augmented.rows() && j < augmented.cols() {
+            let mut max = i;
+            for k in i + 1..augmented.rows() {
+                if augmented.data[k][j] > augmented.data[max][j] {
+                    max = k;
+                }
+            }
+            augmented.data.swap(i, max);
+            for k in 0..augmented.rows() {
+                if k != i {
+                    let factor = augmented.data[k][j] / augmented.data[i][j];
+                    for l in 0..augmented.cols() {
+                        let val = augmented.data[i][l];
+                        augmented.data[k][l] -= factor * val;
+                    }
+                }
+            }
+            i += 1;
+            j += 1;
+        }
+        let mut solution: Vec<V> = vec![Default::default(); self.cols()];
+        for i in 0..self.rows() {
+            solution[i] = (augmented.data[i][self.cols()] / augmented.data[i][i]).into();
+        }
+        solution
     }
 }
 
@@ -109,7 +146,7 @@ where
 
 impl<T> Add for Matrix<T>
 where
-    T: Add<Output = T> + Clone + Default + Copy + From<u8>,
+    T: Add<Output = T> + Clone + Default + Copy,
 {
     type Output = Self;
 
@@ -126,7 +163,7 @@ where
 
 impl<T> Sub for Matrix<T>
 where
-    T: Sub<Output = T> + Clone + Default + Copy + From<u8>,
+    T: Sub<Output = T> + Clone + Default + Copy,
 {
     type Output = Self;
 
@@ -143,7 +180,7 @@ where
 
 impl<T> Mul<Matrix<T>> for Matrix<T>
 where
-    T: Default + Clone + Add<Output = T> + Mul<Output = T> + Copy + From<u8> + AddAssign,
+    T: Default + Clone + Add<Output = T> + Mul<Output = T> + Copy + AddAssign,
 {
     type Output = Self;
 
@@ -162,7 +199,7 @@ where
 
 impl<T> Mul<T> for Matrix<T>
 where
-    T: Default + Clone + Add<Output = T> + Mul<Output = T> + Copy + From<u8>,
+    T: Default + Clone + Add<Output = T> + Mul<Output = T> + Copy,
 {
     type Output = Self;
 

@@ -40,8 +40,9 @@ fn main() {
     // using the north-west corner method
 
     let mut times = Vec::new();
+    let nb_problems = 100;
 
-    for _ in 0..100 {
+    for _ in 0..nb_problems {
         let mut table: Table<u32> = generate_problem(1000, 1000);
         let start = std::time::Instant::now();
         table.north_west_corner();
@@ -51,8 +52,9 @@ fn main() {
 
     println!(
         "Average time: {:?}",
-        times.iter().sum::<std::time::Duration>() / 10
+        times.iter().sum::<std::time::Duration>() / nb_problems
     );
+    println!("Worst time: {:?}", times.iter().max().unwrap());
 
     // display the solution
     let mut table: Table<u32> = generate_problem(10, 10);

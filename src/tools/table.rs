@@ -2,7 +2,7 @@ use std::{
     fmt::{Debug, Display},
     iter::Sum,
     num::ParseIntError,
-    ops::{Add, AddAssign, Mul, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
     str::FromStr,
     vec,
 };
@@ -11,7 +11,10 @@ use tabled::{
     settings::{Alignment, Style},
 };
 
+use crate::tools::graph::Graph;
 use crate::tools::matrix::Matrix;
+
+use super::graph::Edge;
 
 pub struct Table<T> {
     costs: Matrix<T>,
@@ -40,7 +43,10 @@ where
         + Ord
         + SubAssign
         + Copy
-        + Sum,
+        + Sum
+        + PartialOrd
+        + Div<Output = T>
+        + SubAssign,
 {
     pub fn new(costs: Matrix<T>, transport: Matrix<T>, supply: Vec<T>, demand: Vec<T>) -> Self {
         // Check if the number of rows in the costs matrix is equal to the length of the supply vector
@@ -89,6 +95,7 @@ where
         let mut nm = lines.next().unwrap().split_whitespace();
         let n = nm.next().unwrap().parse().unwrap();
         let m = nm.next().unwrap().parse().unwrap();
+        println!("n: {}, m: {}", n, m);
         let mut costs = Matrix::new_empty(n, m);
         let mut supply: Vec<T> = vec![Default::default(); n];
         let mut demand: Vec<T> = vec![Default::default(); m];
@@ -97,11 +104,11 @@ where
             for j in 0..m {
                 costs.set(i, j, line.next().unwrap().parse().unwrap());
             }
-            demand[i] = line.next().unwrap().parse().unwrap();
+            supply[i] = line.next().unwrap().parse().unwrap();
         }
         let mut line = lines.next().unwrap().split_whitespace();
         for i in 0..m {
-            supply[i] = line.next().unwrap().parse().unwrap();
+            demand[i] = line.next().unwrap().parse().unwrap();
         }
         // Check if there are no more lines in the file
         assert!(lines.next().is_none());
@@ -164,6 +171,44 @@ where
         }
     }
 
+    pub fn get_graph(&self) -> Graph<T> {
+        let mut graph = Graph::new();
+        for i in 0..self.n {
+            graph.add_node(format!("S{}", i + 1));
+        }
+        for j in 0..self.m {
+            graph.add_node(format!("D{}", j + 1));
+        }
+        for i in 0..self.n {
+            for j in 0..self.m {
+                if self.transport.get(i, j).unwrap() != Default::default() {
+                    graph.add_edge(
+                        format!("S{}", i + 1),
+                        format!("D{}", j + 1),
+                        self.transport.get(i, j).unwrap(),
+                    );
+                }
+            }
+        }
+        graph
+    }
+
+    pub fn get_unused_edges(&self) -> Vec<Edge<T>> {
+        let mut unused = Vec::new();
+        for i in 0..self.n {
+            for j in 0..self.m {
+                if self.transport.get(i, j).unwrap() == Default::default() {
+                    unused.push(Edge::new(
+                        format!("S{}", i + 1),
+                        format!("D{}", j + 1),
+                        self.costs.get(i, j).unwrap(),
+                    ));
+                }
+            }
+        }
+        unused
+    }
+
     pub fn display(&self, data: &Matrix<T>) {
         let mut table = Builder::default();
 
@@ -202,5 +247,66 @@ where
                 .with(Alignment::center())
                 .to_string()
         );
+    }
+
+    pub fn potentials<V>(&self, graph: Graph<T>) -> (Vec<V>, Vec<V>)
+    where
+        V: Default
+            + Clone
+            + Copy
+            + Add<Output = V>
+            + Sub<Output = V>
+            + Mul<Output = V>
+            + Div<Output = V>
+            + Ord
+            + SubAssign
+            + From<i8>,
+        T: Into<V>,
+    {
+        let mut u = vec![Default::default(); self.n];
+        let mut v = vec![Default::default(); self.m];
+
+        // check if the graph is a tree
+        if !graph.is_tree() {
+            panic!("The graph is not a tree");
+        }
+
+        let mut a: Matrix<i8> = Matrix::new_empty(self.n + self.m - 1, self.n + self.m - 1);
+        let mut b: Vec<T> = vec![Default::default(); self.n + self.m - 1];
+        // fill the matrix A and the vector B with the edges and the costs
+        let mut i = 0;
+        for edge in graph.edges {
+            if edge.from.starts_with("S") {
+                let j = edge.from[1..].parse::<usize>().unwrap();
+                println!("i: {}, j: {}", i, j);
+                a.set(i, j - 1, 1);
+                a.set(i, self.n + j - 1, -1);
+                b[i] = self
+                    .costs
+                    .get(j - 1, edge.to[1..].parse::<usize>().unwrap() - 1)
+                    .unwrap();
+            } else {
+                let j = edge.to[1..].parse::<usize>().unwrap();
+                a.set(i, j - 1, 1);
+                a.set(i, self.n + j - 1, -1);
+                b[i] = self
+                    .costs
+                    .get(edge.from[1..].parse::<usize>().unwrap() - 1, j - 1)
+                    .unwrap();
+            }
+            i += 1;
+        }
+
+        // solve the system of linear equations
+        let potentials = a.solve::<T, V>(&b);
+
+        // fill the u and v vectors
+        for i in 0..self.n {
+            u[i] = potentials[i];
+        }
+        for j in 0..self.m {
+            v[j] = potentials[self.n + j];
+        }
+        (u, v)
     }
 }
