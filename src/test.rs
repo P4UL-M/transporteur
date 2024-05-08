@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 mod tools;
+use std::env;
+
 use rand::distributions::{Distribution, Uniform};
 use tools::matrix::Matrix;
 use tools::table::Table;
@@ -19,8 +21,8 @@ fn generate_problem(n: usize, m: usize) -> Table<u32> {
 
     for i in 0..n {
         for j in 0..m {
-            costs.set(i, j, die.sample(&mut rng));
-            matrix.set(i, j, die.sample(&mut rng));
+            costs[(i, j)] = die.sample(&mut rng);
+            matrix[(i, j)] = die.sample(&mut rng);
         }
     }
 
@@ -36,6 +38,7 @@ fn generate_problem(n: usize, m: usize) -> Table<u32> {
 }
 
 fn main() {
+    env::set_var("RUST_BACKTRACE", "1");
     // the objective is to benchmark the time it takes to solve the problem
     // using the north-west corner method
 
@@ -43,9 +46,17 @@ fn main() {
     let nb_problems = 100;
 
     for _ in 0..nb_problems {
-        let mut table: Table<u32> = generate_problem(1000, 1000);
-        let start = std::time::Instant::now();
+        let mut table: Table<u32> = generate_problem(10, 10);
         table.north_west_corner();
+        let start = std::time::Instant::now();
+        let mut graph = table.get_graph();
+        while !graph.is_connected() {
+            graph
+                .k_edge_augmentation(1, table.get_unused_edges())
+                .unwrap();
+        }
+        println!("{:?}", graph.is_tree());
+        table.marginal_cost::<i64>(&graph);
         let elapsed = start.elapsed();
         times.push(elapsed);
     }

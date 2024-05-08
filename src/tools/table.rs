@@ -102,7 +102,7 @@ where
         for i in 0..n {
             let mut line = lines.next().unwrap().split_whitespace();
             for j in 0..m {
-                costs.set(i, j, line.next().unwrap().parse().unwrap());
+                costs[(i, j)] = line.next().unwrap().parse().unwrap();
             }
             supply[i] = line.next().unwrap().parse().unwrap();
         }
@@ -128,10 +128,6 @@ where
         &self.transport
     }
 
-    pub fn transport_mut(&mut self) -> &mut Matrix<T> {
-        &mut self.transport
-    }
-
     pub fn supply(&self) -> &Vec<T> {
         &self.supply
     }
@@ -146,9 +142,9 @@ where
             .iter()
             .enumerate()
             .fold(Default::default(), |acc, (i, row)| {
-                row.iter().enumerate().fold(acc, |acc, (j, &cost)| {
-                    acc + cost * self.transport.get(i, j).unwrap()
-                })
+                row.iter()
+                    .enumerate()
+                    .fold(acc, |acc, (j, &cost)| acc + cost * self.transport[(i, j)])
             })
     }
 
@@ -159,7 +155,7 @@ where
         let mut demand = self.demand.clone();
         while i < self.n && j < self.m {
             let min = std::cmp::min(supply[i], demand[j]);
-            self.transport_mut().set(i, j, min);
+            self.transport[(i, j)] = min;
             supply[i] -= min;
             demand[j] -= min;
             if supply[i] == Default::default() {
@@ -181,11 +177,11 @@ where
         }
         for i in 0..self.n {
             for j in 0..self.m {
-                if self.transport.get(i, j).unwrap() != Default::default() {
+                if self.transport[(i, j)] != Default::default() {
                     graph.add_edge(
                         format!("S{}", i + 1),
                         format!("D{}", j + 1),
-                        self.transport.get(i, j).unwrap(),
+                        self.transport[(i, j)],
                     );
                 }
             }
@@ -197,11 +193,11 @@ where
         let mut unused = Vec::new();
         for i in 0..self.n {
             for j in 0..self.m {
-                if self.transport.get(i, j).unwrap() == Default::default() {
+                if self.transport[(i, j)] == Default::default() {
                     unused.push(Edge::new(
                         format!("S{}", i + 1),
                         format!("D{}", j + 1),
-                        self.costs.get(i, j).unwrap(),
+                        self.costs[(i, j)],
                     ));
                 }
             }
@@ -224,7 +220,7 @@ where
             let mut row = Vec::new();
             row.push(format!("S{}", i + 1));
             for j in 0..self.m {
-                let cost = data.get(i, j).unwrap();
+                let cost = data[(i, j)];
                 row.push(cost.to_string());
             }
             // Add the supply value
@@ -286,15 +282,18 @@ where
                     .strip_prefix("D")
                     .and_then(|s| s.parse::<usize>().ok()),
             ) {
-                a.set(l, i - 1, 1);
-                a.set(l, self.n + j - 1, -1);
-                b[l] = self.costs.get(i - 1, j - 1).unwrap();
+                a[(l, i - 1)] = 1;
+                a[(l, self.n + j - 1)] = -1;
+                b[l] = self.costs[(i - 1, j - 1)];
                 l += 1;
             }
         }
         // fill the last row of the matrix A
-        a.set(l, 1, 1);
+        a[(l, 0)] = 1;
         b[l] = 0.into();
+
+        println!("Matrix A: {:?}", a);
+        println!("Vector B: {:?}", b);
 
         // solve the system of linear equations
         let potentials = a.solve::<T, V>(&b);
@@ -327,7 +326,7 @@ where
         let mut potential = Matrix::new_empty(self.n, self.m);
         for i in 0..self.n {
             for j in 0..self.m {
-                potential.set(i, j, self.costs.get(i, j).unwrap().into() - (u[i] - v[j]));
+                potential[(i, j)] = self.costs[(i, j)].into() - (u[i] - v[j]);
             }
         }
         potential

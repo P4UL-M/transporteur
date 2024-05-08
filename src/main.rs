@@ -24,5 +24,14 @@ fn main() {
     println!("{:?}", graph.is_tree());
 
     println!("Potentials : {:?}", table.potentials::<i64>(&graph));
-    println!("Marginal costs : {:?}", table.marginal_cost::<i64>(&graph));
+
+    let matrix = table.marginal_cost::<i64>(&graph);
+    let min_marginal_cost = matrix.min().unwrap();
+
+    println!("Marginal cost : {:?}", matrix);
+    println!("Min marginal cost : {:?}", min_marginal_cost);
+    println!(
+        "Index of min marginal cost : {:?}",
+        matrix.index_of(min_marginal_cost).unwrap()
+    );
 }

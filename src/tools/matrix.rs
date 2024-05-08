@@ -3,6 +3,8 @@ use std::fmt::Display;
 use std::ops::Add;
 use std::ops::AddAssign;
 use std::ops::Div;
+use std::ops::Index;
+use std::ops::IndexMut;
 use std::ops::Mul;
 use std::ops::Sub;
 use std::ops::SubAssign;
@@ -65,12 +67,37 @@ where
         self.rows() == 0 || self.cols() == 0
     }
 
-    pub fn get(&self, i: usize, j: usize) -> Option<T> {
-        self.data.get(i).and_then(|row| row.get(j).copied())
+    pub fn min(&self) -> Option<T>
+    where
+        T: Ord,
+    {
+        self.data.iter().flatten().copied().min()
     }
 
-    pub fn set(&mut self, i: usize, j: usize, value: T) {
-        self.data[i][j] = value;
+    pub fn index_of(&self, value: T) -> Option<(usize, usize)>
+    where
+        T: PartialEq,
+    {
+        for i in 0..self.rows() {
+            for j in 0..self.cols() {
+                if self.data[i][j] == value {
+                    return Some((i, j));
+                }
+            }
+        }
+        None
+    }
+
+    pub fn iter_rows(&self) -> impl Iterator<Item = &Vec<T>> {
+        self.data.iter()
+    }
+
+    pub fn iter_cols(&self) -> impl Iterator<Item = Vec<T>> + '_ {
+        (0..self.cols()).map(move |j| {
+            (0..self.rows())
+                .map(move |i| self.data[i][j])
+                .collect::<Vec<T>>()
+        })
     }
 }
 
@@ -211,5 +238,19 @@ where
             }
         }
         Self::new(product)
+    }
+}
+
+impl<T> Index<(usize, usize)> for Matrix<T> {
+    type Output = T;
+
+    fn index(&self, index: (usize, usize)) -> &Self::Output {
+        &self.data[index.0][index.1]
+    }
+}
+
+impl<T> IndexMut<(usize, usize)> for Matrix<T> {
+    fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
+        &mut self.data[index.0][index.1]
     }
 }
