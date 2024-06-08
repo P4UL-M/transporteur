@@ -6,6 +6,7 @@ use std::ops::Div;
 use std::ops::Index;
 use std::ops::IndexMut;
 use std::ops::Mul;
+use std::ops::Neg;
 use std::ops::Sub;
 use std::ops::SubAssign;
 
@@ -107,7 +108,16 @@ where
 {
     pub fn solve<U, V>(&self, b: &Vec<U>) -> Vec<V>
     where
-        V: Default + Clone + Copy + From<T> + Ord + Div<Output = V> + Mul<Output = V> + SubAssign,
+        V: Default
+            + Clone
+            + Copy
+            + From<T>
+            + Ord
+            + Div<Output = V>
+            + Mul<Output = V>
+            + SubAssign
+            + Debug
+            + Neg<Output = V>,
         U: Into<V> + Copy,
     {
         let mut augmented: Matrix<V> = Matrix::new_empty(self.rows(), self.cols() + 1);
@@ -117,31 +127,44 @@ where
             }
             augmented.data[i][self.cols()] = b[i].into();
         }
+
         let mut i = 0;
         let mut j = 0;
         while i < augmented.rows() && j < augmented.cols() {
-            let mut max = i;
+            let mut max: V = Default::default();
+            let mut kmax = i;
             for k in i + 1..augmented.rows() {
-                if augmented.data[k][j] > augmented.data[max][j] {
-                    max = k;
+                if augmented.data[k][j] > max {
+                    kmax = k;
+                    max = augmented.data[k][j];
+                } else if -augmented.data[k][j] > max {
+                    kmax = k;
+                    max = -augmented.data[k][j];
                 }
             }
-            augmented.data.swap(i, max);
-            for k in 0..augmented.rows() {
-                if k != i {
-                    let factor = augmented.data[k][j] / augmented.data[i][j];
-                    for l in 0..augmented.cols() {
-                        let val = augmented.data[i][l];
-                        augmented.data[k][l] -= factor * val;
-                    }
+            augmented.data.swap(i, kmax);
+            let pivot = augmented.data[i][j];
+            if pivot == V::default() {
+                panic!("Matrix is singular");
+            }
+            for k in i + 1..augmented.rows() {
+                let factor = augmented.data[k][j] / pivot;
+                for l in j..augmented.cols() {
+                    let val = augmented[(i, l)] * factor;
+                    augmented.data[k][l] -= val;
                 }
             }
             i += 1;
             j += 1;
         }
+
         let mut solution: Vec<V> = vec![Default::default(); self.cols()];
-        for i in 0..self.rows() {
-            solution[i] = (augmented.data[i][self.cols()] / augmented.data[i][i]).into();
+        for i in (0..self.cols()).rev() {
+            solution[i] = augmented.data[i][self.cols()] / augmented.data[i][i];
+            for j in 0..i {
+                let val = augmented.data[j][i] * solution[i];
+                augmented.data[j][self.cols()] -= val;
+            }
         }
         solution
     }

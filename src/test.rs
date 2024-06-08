@@ -44,18 +44,19 @@ fn main() {
 
     let mut times = Vec::new();
     let nb_problems = 100;
+    let size = 400;
 
     for _ in 0..nb_problems {
-        let mut table: Table<u32> = generate_problem(10, 10);
+        println!("Problem {}/{}", times.len() + 1, nb_problems);
+        let mut table: Table<u32> = generate_problem(size, size);
         table.north_west_corner();
-        let start = std::time::Instant::now();
         let mut graph = table.get_graph();
         while !graph.is_connected() {
             graph
                 .k_edge_augmentation(1, table.get_unused_edges())
                 .unwrap();
         }
-        println!("{:?}", graph.is_tree());
+        let start = std::time::Instant::now();
         table.marginal_cost::<i64>(&graph);
         let elapsed = start.elapsed();
         times.push(elapsed);
@@ -66,14 +67,4 @@ fn main() {
         times.iter().sum::<std::time::Duration>() / nb_problems
     );
     println!("Worst time: {:?}", times.iter().max().unwrap());
-
-    // display the solution
-    let mut table: Table<u32> = generate_problem(10, 10);
-
-    table.display(&table.costs());
-
-    table.north_west_corner();
-
-    table.display(&table.transport());
-    println!("Total cost: {}", table.total_cost());
 }

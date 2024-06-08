@@ -2,7 +2,7 @@ use std::{
     fmt::{Debug, Display},
     iter::Sum,
     num::ParseIntError,
-    ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign},
     str::FromStr,
     vec,
 };
@@ -256,7 +256,9 @@ where
             + Div<Output = V>
             + Ord
             + SubAssign
-            + From<i8>,
+            + From<i8>
+            + Debug
+            + Neg<Output = V>,
         T: Into<V>,
     {
         let mut u = vec![Default::default(); self.n];
@@ -292,9 +294,6 @@ where
         a[(l, 0)] = 1;
         b[l] = 0.into();
 
-        println!("Matrix A: {:?}", a);
-        println!("Vector B: {:?}", b);
-
         // solve the system of linear equations
         let potentials = a.solve::<T, V>(&b);
 
@@ -319,16 +318,18 @@ where
             + Div<Output = V>
             + Ord
             + SubAssign
-            + From<i8>,
+            + From<i8>
+            + Debug
+            + Neg<Output = V>,
         T: Into<V>,
     {
         let (u, v) = self.potentials::<V>(graph);
-        let mut potential = Matrix::new_empty(self.n, self.m);
+        let mut marginal_cost = Matrix::new_empty(self.n, self.m);
         for i in 0..self.n {
             for j in 0..self.m {
-                potential[(i, j)] = self.costs[(i, j)].into() - (u[i] - v[j]);
+                marginal_cost[(i, j)] = self.costs[(i, j)].into() - (u[i] - v[j]);
             }
         }
-        potential
+        marginal_cost
     }
 }

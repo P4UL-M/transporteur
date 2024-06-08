@@ -5,9 +5,12 @@
 
 use rand::prelude::SliceRandom;
 use rand::SeedableRng;
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    fmt::Debug,
+};
 
-#[derive(Clone)]
+#[derive(Clone, Eq, Hash)]
 pub struct Edge<T> {
     pub from: String,
     pub to: String,
@@ -57,15 +60,25 @@ where
     }
 
     pub fn add_node(&mut self, node: String) {
+        if self.vertices.contains(&node) {
+            panic!("Node already exists");
+        }
         self.vertices.push(node);
     }
 
     pub fn add_edge(&mut self, from: String, to: String, weight: T) {
+        let new_edge = Edge::new(from.clone(), to.clone(), weight.clone());
+        if self.edges.contains(&new_edge) {
+            panic!("Edge already exists");
+        }
         self.edges.push(Edge::new(from, to, weight));
     }
 
     pub fn add_edges(&mut self, edges: Vec<Edge<T>>) {
         for edge in edges {
+            if self.edges.contains(&edge) {
+                panic!("Edge already exists");
+            }
             self.edges.push(edge);
         }
     }
@@ -100,27 +113,41 @@ where
     }
 
     pub fn is_cyclic(&self) -> bool {
-        let mut visited = HashMap::new();
-        let mut stack = Vec::new();
+        let mut visited: HashSet<String> = HashSet::new();
+        let mut stack: VecDeque<(String, Option<String>)> = VecDeque::new();
 
-        if self.vertices.is_empty() {
-            return false;
-        }
+        for vertex in &self.vertices {
+            if !visited.contains(vertex) {
+                stack.push_back((vertex.clone(), None));
 
-        stack.push((&self.vertices[0], None));
+                while let Some((current, parent)) = stack.pop_back() {
+                    if visited.contains(&current) {
+                        return true; // Cycle detected
+                    }
 
-        while let Some((node, parent)) = stack.pop() {
-            if visited.contains_key(&node) {
-                return true;
-            }
+                    visited.insert(current.clone());
 
-            visited.insert(node, true);
-
-            for edge in self.edges.iter() {
-                if &edge.from == node && Some(&edge.to) != parent {
-                    stack.push((&edge.to, Some(node)));
-                } else if &edge.to == node && Some(&edge.from) != parent {
-                    stack.push((&edge.from, Some(node)));
+                    // Find adjacent vertices
+                    for edge in &self.edges {
+                        if edge.from == current {
+                            if let Some(ref parent) = parent {
+                                // Avoid going back to the parent
+                                if edge.to == *parent {
+                                    continue;
+                                }
+                            }
+                            stack.push_back((edge.to.clone(), Some(current.clone())));
+                        }
+                        if edge.to == current {
+                            if let Some(ref parent) = parent {
+                                // Avoid going back to the parent
+                                if edge.from == *parent {
+                                    continue;
+                                }
+                            }
+                            stack.push_back((edge.from.clone(), Some(current.clone())));
+                        }
+                    }
                 }
             }
         }
@@ -133,59 +160,61 @@ where
     }
 
     pub fn find_cycle(&self) -> Option<Vec<Edge<T>>> {
-        let mut visited = HashMap::new();
-        let mut stack = Vec::new();
-        let mut parent = HashMap::new();
+        let mut visited: HashSet<String> = HashSet::new();
 
         if self.vertices.is_empty() {
             return None;
         }
 
-        stack.push((&self.vertices[0], None));
+        pub fn dfs<T>(
+            graph: &Graph<T>,
+            node: String,
+            parent: String,
+            visited: &mut HashSet<String>,
+            path: &mut Vec<Edge<T>>,
+        ) -> Option<Vec<Edge<T>>>
+        where
+            T: Clone,
+        {
+            visited.insert(node.clone());
 
-        while let Some((node, _)) = stack.pop() {
-            if visited.contains_key(&node) {
-                let mut cycle = Vec::new();
-                let mut current = node;
+            for edge in graph.edges.iter() {
+                if edge.from == node || edge.to == node {
+                    let next_node = if edge.from == node {
+                        edge.to.clone()
+                    } else {
+                        edge.from.clone()
+                    };
 
-                while let Some(&prev) = parent.get(&current) {
-                    for edge in self.edges.iter() {
-                        if &edge.from == current && &edge.to == prev
-                            || &edge.from == prev && &edge.to == current
+                    if next_node == parent {
+                        continue;
+                    }
+
+                    if !visited.contains(&next_node) {
+                        if let Some(mut cycle) = dfs(graph, next_node, node.clone(), visited, path)
                         {
                             cycle.push(edge.clone());
-                            break;
+                            return Some(cycle);
                         }
                     }
-
-                    if prev == node {
-                        return Some(cycle);
-                    }
-
-                    current = prev;
                 }
             }
-
-            visited.insert(node, true);
-
-            for edge in self.edges.iter() {
-                if &edge.from == node && Some(&edge.to) != parent.get(&node).copied() {
-                    stack.push((&edge.to, Some(node)));
-                    parent.insert(&edge.to, node);
-                } else if &edge.to == node && Some(&edge.from) != parent.get(&node).copied() {
-                    stack.push((&edge.from, Some(node)));
-                    parent.insert(&edge.from, node);
-                }
-            }
+            None
         }
 
-        None
+        return dfs(
+            self,
+            self.vertices[0].clone(),
+            String::new(),
+            &mut visited,
+            &mut Vec::new(),
+        );
     }
 
     pub fn k_edge_augmentation(
         &mut self,
         k: usize,
-        edges: Vec<Edge<T>>,
+        mut edges: Vec<Edge<T>>,
     ) -> Result<(), &'static str> {
         // The k-edge augmentation is a technique used to increase the connectivity of a graph by adding k edges to the graph
 
@@ -201,16 +230,19 @@ where
         // seed the random number generator
         let mut rng = rand::rngs::StdRng::seed_from_u64(self.seed);
         // shuffle the edges
-        let mut edges = edges.clone();
         edges.shuffle(&mut rng);
 
         // step 1: sort the new edges by their weight
-        let mut new_edges = edges;
-        new_edges.sort_by(|a, b| a.weight.partial_cmp(&b.weight).unwrap());
+        edges.sort_by(|a, b| a.weight.partial_cmp(&b.weight).unwrap());
 
         // step 2: add the new edges to the graph
-        for edge in new_edges {
-            self.add_edges(vec![edge.clone()]);
+        for edge in edges {
+            // check if the edge is already in the graph
+            if self.edges.contains(&edge) {
+                continue;
+            }
+
+            self.add_edge(edge.from.clone(), edge.to.clone(), edge.weight.clone());
 
             // step 3: check if the added edge creates a cycle
             if self.is_cyclic() {
